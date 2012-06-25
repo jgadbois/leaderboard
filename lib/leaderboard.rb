@@ -560,13 +560,17 @@ class Leaderboard
   def members_from_score_range_in(leaderboard_name, minimum_score, maximum_score, options = {})
     leaderboard_options = DEFAULT_LEADERBOARD_REQUEST_OPTIONS.dup
     leaderboard_options.merge!(options)
+    
+    raw_leader_data = @redis_connection.multi do |transaction| 
+      if @reverse
+        transaction.zrangebyscore(leaderboard_name, minimum_score, maximum_score)
+      else
+        transaction.zrevrangebyscore(leaderboard_name, maximum_score, minimum_score)
+      end
+    end
 
-    raw_leader_data = @reverse ? 
-      @redis_connection.zrangebyscore(leaderboard_name, minimum_score, maximum_score) :
-      @redis_connection.zrevrangebyscore(leaderboard_name, maximum_score, minimum_score)
-
-    if raw_leader_data
-      return ranked_in_list_in(leaderboard_name, raw_leader_data, leaderboard_options)
+    if raw_leader_data && raw_leader_data[0]
+      return ranked_in_list_in(leaderboard_name, raw_leader_data[0], leaderboard_options)
     else
       return []
     end
